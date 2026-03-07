@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Obligacje">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#080e1a">
+<title>Portfel Obligacji</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+--bg: #080e1a;
+--bg2: #0d1525;
+--bg3: #111d30;
+--bg4: #162038;
+--border: rgba(255,255,255,0.07);
+--border2: rgba(255,255,255,0.13);
+--gold: #f0b429;
+--gold2: #ffd166;
+--teal: #00d4aa;
+--teal2: #00ffcc;
+--blue: #3b82f6;
+--blue2: #60a5fa;
+--red: #ff4d6d;
+--red2: #ff758c;
+--purple: #a78bfa;
+--text: #e8f0fe;
+--text2: #8ea3c3;
+--text3: #4a6080;
+--radius: 16px;
+--radius-sm: 10px;
+--safe-top: env(safe-area-inset-top, 0px);
+--safe-bot: env(safe-area-inset-bottom, 0px);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html{scroll-behavior:smooth;}
+body{
+font-family:'Outfit',sans-serif;
+background:var(--bg);
+color:var(--text);
+min-height:100vh;
+padding-bottom:calc(80px + var(--safe-bot));
+overflow-x:hidden;
+}
+/* BG texture */
+body::before{
+content:'';position:fixed;inset:0;
+background:radial-gradient(ellipse 80% 60% at 50% -10%,rgba(0,212,170,0.06) 0%,transparent 70%),
+radial-gradient(ellipse 60% 40% at 90% 80%,rgba(59,130,246,0.05) 0%,transparent 60%);
+pointer-events:none;z-index:0;
+}
+
+/* ── NAV ── */
+.nav{
+position:fixed;bottom:0;left:0;right:0;
+padding:8px 4px calc(8px + var(–safe-bot));
+background:rgba(8,14,26,0.92);
+backdrop-filter:blur(20px);
+-webkit-backdrop-filter:blur(20px);
+border-top:1px solid var(–border);
+display:flex;justify-content:space-around;
+z-index:100;
+}
+.nav-btn{
+display:flex;flex-direction:column;align-items:center;gap:3px;
+background:none;border:none;color:var(–text3);
+font-family:‘Outfit’,sans-serif;font-size:10px;
+padding:8px 16px;border-radius:12px;
+cursor:pointer;transition:all .2s;min-width:60px;
+}
+.nav-btn svg{width:22px;height:22px;stroke-width:1.8;}
+.nav-btn.active{color:var(–teal);}
+.nav-btn.active svg{filter:drop-shadow(0 0 6px rgba(0,212,170,0.6));}
+
+/* ── PAGES ── */
+.page{display:none;padding:16px;padding-top:calc(16px + var(–safe-top));position:relative;z-index:1;}
+.page.active{display:block;}
+
+/* ── TOP BAR ── */
+.topbar{
+display:flex;align-items:center;justify-content:space-between;
+margin-bottom:20px;
+padding-top:4px;
+}
+.topbar-title{
+font-size:22px;font-weight:800;letter-spacing:-0.03em;
+background:linear-gradient(135deg,var(–text) 0%,var(–teal) 100%);
+-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.topbar-sub{font-size:11px;color:var(–text3);letter-spacing:.08em;text-transform:uppercase;margin-top:1px;}
+
+/* ── INFLATION PILL ── */
+.inflation-bar{
+background:var(–bg2);border:1px solid var(–border);
+border-radius:var(–radius-sm);padding:14px 16px;margin-bottom:16px;
+}
+.inflation-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.inflation-label{font-size:11px;color:var(–text3);text-transform:uppercase;letter-spacing:.1em;}
+.inflation-val{font-family:‘JetBrains Mono’,monospace;font-size:18px;font-weight:500;color:var(–gold);}
+input[type=range]{
+-webkit-appearance:none;width:100%;height:3px;
+background:linear-gradient(90deg,var(–teal) var(–pct,30%),var(–bg4) var(–pct,30%));
+border-radius:2px;outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+-webkit-appearance:none;width:20px;height:20px;
+background:var(–teal);border-radius:50%;
+box-shadow:0 0 12px rgba(0,212,170,.5);
+}
+
+/* ── STAT CARDS ── */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.stat-card{
+background:var(–bg2);border:1px solid var(–border);
+border-radius:var(–radius);padding:16px;
+position:relative;overflow:hidden;
+}
+.stat-card::before{
+content:’’;position:absolute;top:0;left:0;right:0;height:2px;
+background:var(–accent,var(–teal));
+}
+.stat-lbl{font-size:10px;color:var(–text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;}
+.stat-val{font-family:‘JetBrains Mono’,monospace;font-size:16px;font-weight:500;color:var(–text);line-height:1.2;}
+.stat-val.big{font-size:20px;font-weight:700;}
+.stat-sub{font-size:10px;color:var(–text3);margin-top:4px;}
+.stat-card.gold{–accent:var(–gold);}
+.stat-card.teal{–accent:var(–teal);}
+.stat-card.blue{–accent:var(–blue);}
+.stat-card.purple{–accent:var(–purple);}
+.stat-card.span2{grid-column:1/-1;}
+
+/* ── CHART CARDS ── */
+.chart-card{
+background:var(–bg2);border:1px solid var(–border);
+border-radius:var(–radius);padding:18px;margin-bottom:12px;
+}
+.chart-title{font-size:13px;font-weight:600;color:var(–text2);
+text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px;
+display:flex;align-items:center;gap:8px;
+}
+.chart-title::before{content:’’;width:3px;height:14px;border-radius:2px;background:var(–teal);}
+.chart-wrap{position:relative;}
+.chart-wrap canvas{max-height:240px;}
+
+/* ── TABLE ── */
+.bond-table{width:100%;border-collapse:collapse;font-size:12px;}
+.bond-table th{
+padding:10px 8px;text-align:left;
+font-size:10px;text-transform:uppercase;letter-spacing:.1em;
+color:var(–text3);font-weight:500;border-bottom:1px solid var(–border);
+}
+.bond-table td{
+padding:12px 8px;border-bottom:1px solid var(–border);
+color:var(–text2);vertical-align:middle;
+}
+.bond-table td:first-child{color:var(–text);font-weight:600;}
+.bond-table tr:last-child td{border-bottom:none;}
+.bond-table tr:hover td{background:rgba(0,212,170,.03);}
+.pos{color:var(–teal)!important;}
+.neg{color:var(–red)!important;}
+.tag{
+display:inline-block;padding:2px 7px;border-radius:6px;
+font-size:10px;font-weight:600;letter-spacing:.04em;
+background:rgba(0,212,170,.12);color:var(–teal);
+}
+.tag.coi{background:rgba(240,180,41,.12);color:var(–gold);}
+.tag.tos{background:rgba(59,130,246,.12);color:var(–blue2);}
+.tag.inne{background:rgba(167,139,250,.12);color:var(–purple);}
+
+/* ── ACTION BTNS ── */
+.btn-icon{
+background:none;border:1px solid var(–border);
+color:var(–text3);border-radius:8px;padding:5px 8px;
+cursor:pointer;font-size:14px;transition:all .15s;
+display:inline-flex;align-items:center;justify-content:center;
+}
+.btn-icon:active{transform:scale(.92);}
+.btn-icon.del:active{border-color:var(–red);color:var(–red);}
+.btn-icon.edit:active{border-color:var(–teal);color:var(–teal);}
+
+/* ── ADD FORM ── */
+.form-card{
+background:var(–bg2);border:1px solid var(–border);
+border-radius:var(–radius);padding:20px;margin-bottom:12px;
+}
+.form-title{font-size:16px;font-weight:700;margin-bottom:20px;
+display:flex;align-items:center;gap:8px;
+}
+.form-title span{color:var(–teal);}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-group{display:flex;flex-direction:column;gap:6px;}
+.form-group.full{grid-column:1/-1;}
+label{font-size:11px;color:var(–text3);text-transform:uppercase;letter-spacing:.08em;}
+input,select{
+background:var(–bg3);border:1px solid var(–border);
+color:var(–text);border-radius:var(–radius-sm);
+padding:12px 14px;font-size:15px;font-family:‘Outfit’,sans-serif;
+outline:none;transition:border-color .15s;
+-webkit-appearance:none;appearance:none;width:100%;
+}
+input:focus,select:focus{border-color:var(–teal);}
+select option{background:var(–bg3);}
+
+.btn-primary{
+width:100%;padding:16px;
+background:linear-gradient(135deg,var(–teal),#00a080);
+color:#000;font-family:‘Outfit’,sans-serif;
+font-size:15px;font-weight:700;border:none;
+border-radius:var(–radius);cursor:pointer;
+transition:all .15s;letter-spacing:.03em;
+margin-top:8px;
+}
+.btn-primary:active{transform:scale(.97);opacity:.9;}
+.btn-secondary{
+width:100%;padding:14px;
+background:transparent;color:var(–text2);
+font-family:‘Outfit’,sans-serif;font-size:14px;font-weight:500;
+border:1px solid var(–border);border-radius:var(–radius);
+cursor:pointer;margin-top:8px;transition:all .15s;
+}
+.btn-secondary:active{background:var(–bg3);}
+
+/* ── MODAL ── */
+.modal-overlay{
+display:none;position:fixed;inset:0;
+background:rgba(0,0,0,.7);backdrop-filter:blur(6px);
+-webkit-backdrop-filter:blur(6px);z-index:200;
+align-items:flex-end;justify-content:center;
+}
+.modal-overlay.open{display:flex;}
+.modal{
+background:var(–bg2);border:1px solid var(–border2);
+border-radius:var(–radius) var(–radius) 0 0;
+padding:24px 20px calc(24px + var(–safe-bot));
+width:100%;max-width:500px;
+max-height:85vh;overflow-y:auto;
+animation:slideUp .25s ease;
+}
+@keyframes slideUp{from{transform:translateY(40px);opacity:0;}to{transform:none;opacity:1;}}
+.modal-handle{width:36px;height:4px;background:var(–border2);border-radius:2px;margin:0 auto 20px;}
+.modal-title{font-size:18px;font-weight:700;margin-bottom:20px;}
+
+/* ── EMPTY STATE ── */
+.empty{
+text-align:center;padding:48px 20px;color:var(–text3);
+}
+.empty-icon{font-size:48px;margin-bottom:12px;opacity:.5;}
+.empty-text{font-size:14px;line-height:1.6;}
+
+/* ── SECTION DIVIDER ── */
+.section-sep{margin:20px 0 12px;font-size:11px;color:var(–text3);
+text-transform:uppercase;letter-spacing:.12em;
+display:flex;align-items:center;gap:8px;
+}
+.section-sep::after{content:’’;flex:1;height:1px;background:var(–border);}
+
+/* ── INFO BOX ── */
+.info-box{
+background:var(–bg3);border:1px solid var(–border);
+border-left:3px solid var(–gold);
+border-radius:var(–radius-sm);padding:16px;margin-bottom:12px;
+}
+.info-box h3{font-size:13px;font-weight:700;color:var(–gold);margin-bottom:10px;
+text-transform:uppercase;letter-spacing:.06em;}
+.info-box ol{list-style:none;counter-reset:s;}
+.info-box ol li{counter-increment:s;display:flex;gap:10px;font-size:13px;
+color:var(–text2);line-height:1.6;margin-bottom:8px;}
+.info-box ol li::before{
+content:counter(s);min-width:22px;height:22px;
+background:rgba(240,180,41,.15);border:1px solid rgba(240,180,41,.3);
+color:var(–gold);border-radius:6px;display:flex;align-items:center;
+justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px;
+}
+code{background:var(–bg);border:1px solid var(–border);
+padding:1px 5px;border-radius:4px;font-family:‘JetBrains Mono’,monospace;
+font-size:11px;color:var(–blue2);}
+
+/* ── LEGEND ── */
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(–text3);}
+.legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(–border2);border-radius:2px;}
+
+/* ── TOAST ── */
+.toast{
+position:fixed;bottom:calc(90px + var(–safe-bot));left:50%;
+transform:translateX(-50%) translateY(20px);
+background:var(–bg3);border:1px solid var(–border2);
+color:var(–text);font-size:13px;padding:10px 18px;
+border-radius:20px;z-index:300;opacity:0;pointer-events:none;
+transition:all .25s;white-space:nowrap;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+@media(min-width:640px){
+body{max-width:640px;margin:0 auto;}
+.page{padding:20px;}
+}
+</style>
+
+</head>
+<body>
+
+<!-- TOAST -->
+
+<div class="toast" id="toast"></div>
+
+<!-- ═══════════════════ PAGE: DASHBOARD ═══════════════════ -->
+
+<div class="page active" id="page-dashboard">
+<div class="topbar">
+<div>
+<div class="topbar-title">Portfel</div>
+<div class="topbar-sub">Obligacje Skarbowe</div>
+</div>
+<div style="text-align:right;">
+<div style="font-size:11px;color:var(--text3);" id="update-time">—</div>
+<div style="width:6px;height:6px;border-radius:50%;background:var(--teal);
+box-shadow:0 0 8px var(--teal);display:inline-block;margin-left:4px;
+animation:pulse 2s infinite;"></div>
+</div>
+</div>
+
+<!-- INFLATION SLIDER -->
+
+<div class="inflation-bar">
+<div class="inflation-header">
+<span class="inflation-label">Założona inflacja</span>
+<span class="inflation-val" id="inf-display">3.0%</span>
+</div>
+<input type="range" id="inf-slider" min="0" max="10" step="0.1" value="3">
+</div>
+
+<!-- STATS -->
+
+<div class="stats-grid">
+<div class="stat-card teal span2">
+<div class="stat-lbl">Wartość portfela dziś</div>
+<div class="stat-val big" id="s-today">0,00 PLN</div>
+<div class="stat-sub" id="s-today-sub">0 obligacji</div>
+</div>
+<div class="stat-card gold">
+<div class="stat-lbl">Zainwestowano</div>
+<div class="stat-val" id="s-invested">0,00 PLN</div>
+</div>
+<div class="stat-card blue">
+<div class="stat-lbl">Łączny zysk</div>
+<div class="stat-val" id="s-profit">0,00 PLN</div>
+<div class="stat-sub" id="s-profit-pct">0.00%</div>
+</div>
+<div class="stat-card purple">
+<div class="stat-lbl">Wartość przy wykupie</div>
+<div class="stat-val" id="s-maturity">0,00 PLN</div>
+</div>
+<div class="stat-card gold">
+<div class="stat-lbl">Śr. oprocentowanie</div>
+<div class="stat-val" id="s-avg-rate">0.00%</div>
+</div>
+</div>
+
+<!-- CHART: TOTAL PORTFOLIO -->
+
+<div class="chart-card">
+<div class="chart-title">Wartość Portfela w Czasie</div>
+<div class="chart-wrap"><canvas id="chart-portfolio"></canvas></div>
+</div>
+
+<!-- CHART: EACH BOND -->
+
+<div class="chart-card">
+<div class="chart-title">Wzrost Każdej Obligacji</div>
+<div class="chart-wrap"><canvas id="chart-bonds"></canvas></div>
+<div class="legend" id="bonds-legend"></div>
+</div>
+
+<!-- CHART: PIE -->
+
+<div class="chart-card">
+<div class="chart-title">Struktura Portfela</div>
+<div class="chart-wrap" style="max-width:280px;margin:0 auto;">
+<canvas id="chart-pie"></canvas>
+</div>
+</div>
+</div>
+
+<!-- ═══════════════════ PAGE: PORTFEL ═══════════════════ -->
+
+<div class="page" id="page-portfolio">
+<div class="topbar">
+<div>
+<div class="topbar-title">Portfel</div>
+<div class="topbar-sub">Twoje obligacje</div>
+</div>
+<button class="btn-icon edit" onclick="openAddModal()" style="padding:8px 12px;font-size:13px;border-color:var(--teal);color:var(--teal);">+ Dodaj</button>
+</div>
+
+<div id="portfolio-content">
+<div class="empty">
+<div class="empty-icon">📋</div>
+<div class="empty-text">Brak obligacji w portfelu.<br>Dodaj pierwszą obligację.</div>
+</div>
+</div>
+</div>
+
+<!-- ═══════════════════ PAGE: DODAJ ═══════════════════ -->
+
+<div class="page" id="page-add">
+<div class="topbar">
+<div>
+<div class="topbar-title">Dodaj</div>
+<div class="topbar-sub">Nowa obligacja</div>
+</div>
+</div>
+<div class="form-card">
+<div class="form-title"><span>🏦</span> Dane obligacji</div>
+<div class="form-grid">
+<div class="form-group">
+<label>Typ obligacji</label>
+<select id="f-type">
+<option value="EDO">EDO</option>
+<option value="COI">COI</option>
+<option value="TOS">TOS</option>
+<option value="inne">Inne</option>
+</select>
+</div>
+<div class="form-group">
+<label>Nazwa emisji</label>
+<input id="f-name" placeholder="EDO0524" type="text">
+</div>
+<div class="form-group">
+<label>Data zakupu</label>
+<input id="f-date" type="date">
+</div>
+<div class="form-group">
+<label>Kwota (PLN)</label>
+<input id="f-amount" type="number" placeholder="1000" step="100" min="0">
+</div>
+<div class="form-group">
+<label>Oprocentowanie rok 1 (%)</label>
+<input id="f-rate1" type="number" placeholder="6.5" step="0.1" min="0">
+</div>
+<div class="form-group">
+<label>Marża ponad inflację (%)</label>
+<input id="f-margin" type="number" placeholder="1.5" step="0.1" min="0">
+</div>
+<div class="form-group full">
+<label>Długość obligacji (lata)</label>
+<input id="f-years" type="number" placeholder="10" step="1" min="1" max="30">
+</div>
+</div>
+<button class="btn-primary" onclick="addBond()">Dodaj obligację ➜</button>
+<button class="btn-secondary" onclick="clearForm()">Wyczyść formularz</button>
+</div>
+
+<div class="section-sep">Instrukcja</div>
+<div class="info-box">
+<h3>Jak zapisać i otworzyć?</h3>
+<ol>
+<li>Zapisz plik HTML na iPhone — pobierz przez Safari lub wyślij e-mailem, potem <code>Zapisz do Pliki</code>.</li>
+<li>Otwórz plik w <strong>Safari</strong> — stuknij plik dwukrotnie lub wybierz <code>Udostępnij → Safari</code>.</li>
+<li>Dodaj do ekranu głównego: stuknij ikonę <code>Udostępnij ↑</code> → <code>Dodaj do ekranu początkowego</code> → <code>Dodaj</code>.</li>
+<li>Aplikacja działa offline — dane są zapisywane w pamięci urządzenia (localStorage).</li>
+</ol>
+</div>
+</div>
+
+<!-- ═══════════════════ MODAL: EDIT ═══════════════════ -->
+
+<div class="modal-overlay" id="edit-modal" onclick="closeModal(event)">
+<div class="modal">
+<div class="modal-handle"></div>
+<div class="modal-title">Edytuj obligację</div>
+<input type="hidden" id="edit-id">
+<div class="form-grid">
+<div class="form-group">
+<label>Typ obligacji</label>
+<select id="e-type">
+<option value="EDO">EDO</option>
+<option value="COI">COI</option>
+<option value="TOS">TOS</option>
+<option value="inne">Inne</option>
+</select>
+</div>
+<div class="form-group">
+<label>Nazwa emisji</label>
+<input id="e-name" type="text">
+</div>
+<div class="form-group">
+<label>Data zakupu</label>
+<input id="e-date" type="date">
+</div>
+<div class="form-group">
+<label>Kwota (PLN)</label>
+<input id="e-amount" type="number" step="100">
+</div>
+<div class="form-group">
+<label>Oprocentowanie rok 1 (%)</label>
+<input id="e-rate1" type="number" step="0.1">
+</div>
+<div class="form-group">
+<label>Marża ponad inflację (%)</label>
+<input id="e-margin" type="number" step="0.1">
+</div>
+<div class="form-group full">
+<label>Długość obligacji (lata)</label>
+<input id="e-years" type="number" step="1" min="1" max="30">
+</div>
+</div>
+<button class="btn-primary" onclick="saveEdit()">Zapisz zmiany</button>
+<button class="btn-secondary" onclick="closeEditModal()">Anuluj</button>
+</div>
+</div>
+
+<!-- ═══════════════════ MODAL: ADD (shortcut) ═══════════════════ -->
+
+<div class="modal-overlay" id="add-modal" onclick="closeAddModal(event)">
+<div class="modal">
+<div class="modal-handle"></div>
+<div class="modal-title">Nowa obligacja</div>
+<div class="form-grid">
+<div class="form-group">
+<label>Typ</label>
+<select id="m-type">
+<option value="EDO">EDO</option>
+<option value="COI">COI</option>
+<option value="TOS">TOS</option>
+<option value="inne">Inne</option>
+</select>
+</div>
+<div class="form-group">
+<label>Nazwa emisji</label>
+<input id="m-name" placeholder="EDO0524" type="text">
+</div>
+<div class="form-group">
+<label>Data zakupu</label>
+<input id="m-date" type="date">
+</div>
+<div class="form-group">
+<label>Kwota (PLN)</label>
+<input id="m-amount" type="number" placeholder="1000" step="100" min="0">
+</div>
+<div class="form-group">
+<label>Oprocentowanie rok 1 (%)</label>
+<input id="m-rate1" type="number" placeholder="6.5" step="0.1" min="0">
+</div>
+<div class="form-group">
+<label>Marża (%)</label>
+<input id="m-margin" type="number" placeholder="1.5" step="0.1" min="0">
+</div>
+<div class="form-group full">
+<label>Długość (lata)</label>
+<input id="m-years" type="number" placeholder="10" step="1" min="1" max="30">
+</div>
+</div>
+<button class="btn-primary" onclick="addBondModal()">Dodaj obligację ➜</button>
+<button class="btn-secondary" onclick="closeAddModal()">Anuluj</button>
+</div>
+</div>
+
+<!-- ═══════════════════ BOTTOM NAV ═══════════════════ -->
+
+<nav class="nav">
+<button class="nav-btn active" id="nav-dashboard" onclick="showPage('dashboard')">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+Dashboard
+</button>
+<button class="nav-btn" id="nav-portfolio" onclick="showPage('portfolio')">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 7H6a2 2 0 00-2 2v9a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4H9m0 0a2 2 0 000 4h6a2 2 0 000-4m-6 0h6"/></svg>
+Portfel
+</button>
+<button class="nav-btn" id="nav-add" onclick="showPage('add')">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+Dodaj
+</button>
+</nav>
+
+<script>
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+let bonds = JSON.parse(localStorage.getItem('bonds_v2') || '[]');
+let inflation = parseFloat(localStorage.getItem('inflation_v2') || '3');
+let chartPortfolio = null, chartBonds = null, chartPie = null;
+
+const COLORS = ['#00d4aa','#f0b429','#3b82f6','#a78bfa','#ff4d6d','#34d399','#fb923c','#e879f9'];
+
+// ─────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────
+function save() { localStorage.setItem('bonds_v2', JSON.stringify(bonds)); }
+function saveinf() { localStorage.setItem('inflation_v2', String(inflation)); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function fmtPLN(v) { return v.toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' PLN'; }
+function fmtPct(v) { return (v>=0?'+':'')+v.toFixed(2)+'%'; }
+
+function showToast(msg) {
+const t = document.getElementById('toast');
+t.textContent = msg; t.classList.add('show');
+setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ─────────────────────────────────────────────
+// NAVIGATION
+// ─────────────────────────────────────────────
+function showPage(id) {
+document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+document.getElementById('page-'+id).classList.add('active');
+document.getElementById('nav-'+id).classList.add('active');
+if (id === 'dashboard') refreshDashboard();
+if (id === 'portfolio') renderTable();
+}
+
+// ─────────────────────────────────────────────
+// SIMULATION ENGINE
+// ─────────────────────────────────────────────
+function simulateBond(bond, inflationRate) {
+const start = new Date(bond.date);
+const endDate = new Date(start);
+endDate.setFullYear(endDate.getFullYear() + parseInt(bond.years));
+
+const weeks = [];
+const values = [];
+let cur = new Date(start);
+let value = parseFloat(bond.amount);
+const r1 = parseFloat(bond.rate1) / 100;
+const margin = parseFloat(bond.margin) / 100;
+const rNext = (inflationRate / 100) + margin;
+
+// weekly compounding
+const msPerWeek = 7 * 24 * 3600 * 1000;
+const totalMs = endDate - start;
+const totalWeeks = Math.ceil(totalMs / msPerWeek);
+const oneYear = 365.25 * 24 * 3600 * 1000;
+
+for (let w = 0; w <= totalWeeks; w++) {
+const elapsed = cur - start;
+const elapsedYears = elapsed / oneYear;
+// use r1 for first year, rNext after
+const weekRate = elapsedYears < 1 ? r1/52 : rNext/52;
+weeks.push(new Date(cur));
+values.push(value);
+value *= (1 + weekRate);
+cur = new Date(cur.getTime() + msPerWeek);
+if (cur > endDate) break;
+}
+// add final point
+weeks.push(endDate);
+values.push(value);
+
+return { weeks, values };
+}
+
+function valueAtDate(bond, date, inflationRate) {
+const start = new Date(bond.date);
+const endDate = new Date(start);
+endDate.setFullYear(endDate.getFullYear() + parseInt(bond.years));
+if (date <= start) return parseFloat(bond.amount);
+if (date >= endDate) {
+const sim = simulateBond(bond, inflationRate);
+return sim.values[sim.values.length - 1];
+}
+const oneYear = 365.25 * 24 * 3600 * 1000;
+const r1 = parseFloat(bond.rate1) / 100;
+const margin = parseFloat(bond.margin) / 100;
+const rNext = (inflationRate / 100) + margin;
+
+// compound to date
+const msPerWeek = 7 * 24 * 3600 * 1000;
+let cur = new Date(start);
+let value = parseFloat(bond.amount);
+while (cur < date) {
+const elapsed = cur - start;
+const elapsedYears = elapsed / oneYear;
+const weekRate = elapsedYears < 1 ? r1/52 : rNext/52;
+value *= (1 + weekRate);
+cur = new Date(cur.getTime() + msPerWeek);
+}
+return value;
+}
+
+// ─────────────────────────────────────────────
+// DASHBOARD
+// ─────────────────────────────────────────────
+function refreshDashboard() {
+const now = new Date();
+document.getElementById('update-time').textContent =
+now.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
+
+if (bonds.length === 0) {
+// reset charts
+['chart-portfolio','chart-bonds','chart-pie'].forEach(id => {
+const canvas = document.getElementById(id);
+const ctx = canvas.getContext('2d');
+ctx.clearRect(0,0,canvas.width,canvas.height);
+});
+document.getElementById('s-today').textContent = '0,00 PLN';
+document.getElementById('s-today-sub').textContent = '0 obligacji';
+document.getElementById('s-invested').textContent = '0,00 PLN';
+document.getElementById('s-profit').textContent = '0,00 PLN';
+document.getElementById('s-profit-pct').textContent = '0.00%';
+document.getElementById('s-maturity').textContent = '0,00 PLN';
+document.getElementById('s-avg-rate').textContent = '0.00%';
+return;
+}
+
+// today values
+const invested = bonds.reduce((a,b) => a + parseFloat(b.amount), 0);
+const todayVal = bonds.reduce((a,b) => a + valueAtDate(b, now, inflation), 0);
+const profit = todayVal - invested;
+const profitPct = (profit / invested) * 100;
+
+// maturity value (each bond at its own end date)
+const maturity = bonds.reduce((a,b) => {
+const sim = simulateBond(b, inflation);
+return a + sim.values[sim.values.length-1];
+}, 0);
+
+// avg rate (weighted by amount)
+const avgRate = bonds.reduce((a,b) => a + parseFloat(b.rate1) * parseFloat(b.amount), 0) / invested;
+
+document.getElementById('s-today').textContent = fmtPLN(todayVal);
+document.getElementById('s-today-sub').textContent = bonds.length + ' obligacj' + (bonds.length===1?'a':bonds.length<5?'e':'i');
+document.getElementById('s-invested').textContent = fmtPLN(invested);
+document.getElementById('s-profit').textContent = (profit>=0?'+':'') + fmtPLN(profit);
+document.getElementById('s-profit').className = 'stat-val ' + (profit>=0?'pos':'neg');
+document.getElementById('s-profit-pct').textContent = fmtPct(profitPct);
+document.getElementById('s-maturity').textContent = fmtPLN(maturity);
+document.getElementById('s-avg-rate').textContent = avgRate.toFixed(2) + '%';
+
+drawPortfolioChart();
+drawBondsChart();
+drawPieChart();
+}
+
+function buildPortfolioTimeline() {
+if (bonds.length === 0) return { labels: [], data: [] };
+const msPerWeek = 7 * 24 * 3600 * 1000;
+const start = bonds.reduce((m,b) => { const d = new Date(b.date); return d < m ? d : m; }, new Date(bonds[0].date));
+const end = bonds.reduce((m,b) => { const d = new Date(b.date); d.setFullYear(d.getFullYear()+parseInt(b.years)); return d > m ? d : m; }, new Date(0));
+const labels = [], data = [];
+let cur = new Date(start);
+while (cur <= end) {
+const total = bonds.reduce((a,b) => a + valueAtDate(b, cur, inflation), 0);
+labels.push(cur.toISOString().slice(0,10));
+data.push(parseFloat(total.toFixed(2)));
+cur = new Date(cur.getTime() + msPerWeek * 4); // monthly points
+}
+return { labels, data };
+}
+
+function drawPortfolioChart() {
+const { labels, data } = buildPortfolioTimeline();
+const ctx = document.getElementById('chart-portfolio').getContext('2d');
+if (chartPortfolio) chartPortfolio.destroy();
+
+// sample down for mobile
+const maxPts = 80;
+let lblS = labels, datS = data;
+if (labels.length > maxPts) {
+const step = Math.ceil(labels.length / maxPts);
+lblS = labels.filter((_,i) => i % step === 0);
+datS = data.filter((_,i) => i % step === 0);
+}
+
+chartPortfolio = new Chart(ctx, {
+type: 'line',
+data: {
+labels: lblS,
+datasets: [{
+label: 'Portfel PLN',
+data: datS,
+borderColor: '#00d4aa',
+backgroundColor: 'rgba(0,212,170,0.08)',
+borderWidth: 2,
+pointRadius: 0,
+tension: 0.4,
+fill: true,
+}]
+},
+options: {
+responsive: true, maintainAspectRatio: true,
+plugins: { legend: { display: false },
+tooltip: {
+backgroundColor: '#0d1525', borderColor: '#1e2d42', borderWidth: 1,
+titleColor: '#e8f0fe', bodyColor: '#8ea3c3', padding: 10,
+callbacks: { label: c => ' ' + fmtPLN(c.parsed.y) }
+}
+},
+scales: {
+x: { ticks: { color: '#4a6080', font: { size: 9 }, maxTicksLimit: 6, maxRotation: 0 },
+grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.08)' } },
+y: { ticks: { color: '#4a6080', font: { size: 9, family: "'JetBrains Mono'" },
+callback: v => v >= 1000 ? (v/1000).toFixed(0)+'k' : v.toFixed(0) },
+grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.08)' } }
+}
+}
+});
+}
+
+function drawBondsChart() {
+const ctx = document.getElementById('chart-bonds').getContext('2d');
+if (chartBonds) chartBonds.destroy();
+const legend = document.getElementById('bonds-legend');
+legend.innerHTML = '';
+
+// Build unified label set (years from earliest start)
+const starts = bonds.map(b => new Date(b.date));
+const globalStart = starts.reduce((m,d) => d < m ? d : m, starts[0]);
+const msPerWeek = 7*24*3600*1000;
+
+const datasets = bonds.map((b, i) => {
+const sim = simulateBond(b, inflation);
+const maxPts = 52; // ~1 pt/week for 1yr bond, fewer for longer
+let wks = sim.weeks, vals = sim.values;
+if (wks.length > maxPts) {
+const step = Math.ceil(wks.length / maxPts);
+wks = wks.filter((_,j) => j % step === 0);
+vals = vals.filter((_,j) => j % step === 0);
+}
+const col = COLORS[i % COLORS.length];
+legend.innerHTML += `<div class="legend-item"><div class="legend-dot" style="background:${col};"></div>${b.name || b.type}</div>`;
+// x = weeks from global start
+return {
+label: b.name || b.type,
+data: vals.map((v,j) => ({
+x: Math.round((wks[j] - globalStart) / msPerWeek),
+y: parseFloat(v.toFixed(2))
+})),
+borderColor: col,
+backgroundColor: 'transparent',
+borderWidth: 1.8,
+pointRadius: 0,
+tension: 0.4,
+};
+});
+
+chartBonds = new Chart(ctx, {
+type: 'line',
+data: { datasets },
+options: {
+responsive: true, maintainAspectRatio: true,
+plugins: { legend: { display: false },
+tooltip: {
+backgroundColor: '#0d1525', borderColor: '#1e2d42', borderWidth: 1,
+titleColor: '#e8f0fe', bodyColor: '#8ea3c3', padding: 10,
+callbacks: {
+title: items => {
+const wk = items[0].parsed.x;
+const d = new Date(globalStart.getTime() + wk*msPerWeek);
+return d.toLocaleDateString('pl-PL',{year:'numeric',month:'short'});
+},
+label: c => ' ' + c.dataset.label + ': ' + fmtPLN(c.parsed.y)
+}
+}
+},
+scales: {
+x: {
+type: 'linear',
+ticks: {
+color: '#4a6080', font: { size: 9 }, maxTicksLimit: 6, maxRotation: 0,
+callback: v => {
+const d = new Date(globalStart.getTime() + v*msPerWeek);
+return d.getFullYear();
+}
+},
+grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.08)' }
+},
+y: { ticks: { color: '#4a6080', font: { size: 9, family: "'JetBrains Mono'" },
+callback: v => v >= 1000 ? (v/1000).toFixed(1)+'k' : v.toFixed(0) },
+grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.08)' } }
+}
+}
+});
+}
+
+function drawPieChart() {
+const ctx = document.getElementById('chart-pie').getContext('2d');
+if (chartPie) chartPie.destroy();
+const groups = {};
+bonds.forEach(b => {
+const t = b.type || 'inne';
+groups[t] = (groups[t] || 0) + parseFloat(b.amount);
+});
+const labels = Object.keys(groups);
+const data = labels.map(l => groups[l]);
+const cols = { EDO: '#00d4aa', COI: '#f0b429', TOS: '#3b82f6', inne: '#a78bfa' };
+
+chartPie = new Chart(ctx, {
+type: 'doughnut',
+data: {
+labels,
+datasets: [{
+data,
+backgroundColor: labels.map(l => (cols[l] || '#888') + 'cc'),
+borderColor: labels.map(l => cols[l] || '#888'),
+borderWidth: 2,
+hoverOffset: 10,
+}]
+},
+options: {
+responsive: true, maintainAspectRatio: true,
+cutout: '62%',
+plugins: {
+legend: { position: 'bottom', labels: { color: '#8ea3c3', font: { size: 11 }, padding: 12, usePointStyle: true, boxWidth: 8 } },
+tooltip: {
+backgroundColor: '#0d1525', borderColor: '#1e2d42', borderWidth: 1,
+titleColor: '#e8f0fe', bodyColor: '#8ea3c3', padding: 10,
+callbacks: { label: c => ' ' + fmtPLN(c.parsed) }
+}
+}
+}
+});
+}
+
+// ─────────────────────────────────────────────
+// PORTFOLIO TABLE
+// ─────────────────────────────────────────────
+function renderTable() {
+const container = document.getElementById('portfolio-content');
+if (bonds.length === 0) {
+container.innerHTML = `<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Brak obligacji w portfelu.<br>Dodaj pierwszą obligację.</div></div>`;
+return;
+}
+const now = new Date();
+let rows = bonds.map((b,i) => {
+const todayV = valueAtDate(b, now, inflation);
+const invested = parseFloat(b.amount);
+const profit = todayV - invested;
+const pct = (profit / invested) * 100;
+const tagClass = b.type.toLowerCase();
+return `<tr>
+<td><div style="font-weight:700;">${b.name||'—'}</div><div class="tag ${tagClass}" style="margin-top:3px;">${b.type}</div></td>
+<td style="font-size:11px;color:var(--text3);">${b.date}</td>
+<td style="font-family:'JetBrains Mono',monospace;">${fmtPLN(invested)}</td>
+<td style="font-family:'JetBrains Mono',monospace;">${fmtPLN(todayV)}</td>
+<td class="${profit>=0?'pos':'neg'}" style="font-family:'JetBrains Mono',monospace;">${profit>=0?'+':''}${fmtPLN(profit)}</td>
+<td class="${pct>=0?'pos':'neg'}">${fmtPct(pct)}</td>
+<td>
+<button class="btn-icon edit" onclick="openEditModal('${b.id}')">✏️</button>
+<button class="btn-icon del" onclick="deleteBond('${b.id}')" style="margin-left:4px;">🗑</button>
+</td>
+</tr>`;
+}).join('');
+
+container.innerHTML = `
+<div style="overflow-x:auto;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);">
+<table class="bond-table">
+<thead><tr>
+<th>Emisja</th><th>Data</th><th>Inwestycja</th><th>Dziś</th><th>Zysk</th><th>%</th><th></th>
+</tr></thead>
+<tbody>${rows}</tbody>
+</table>
+</div>`;
+}
+
+// ─────────────────────────────────────────────
+// ADD / EDIT / DELETE
+// ─────────────────────────────────────────────
+function collectForm(prefix) {
+const v = id => document.getElementById(prefix+id).value.trim();
+const n = id => parseFloat(document.getElementById(prefix+id).value) || 0;
+if (!v('-name') || !v('-date') || !n('-amount') || !n('-years')) return null;
+return {
+id: uid(),
+type: document.getElementById(prefix+'-type').value,
+name: v('-name'),
+date: v('-date'),
+amount: n('-amount'),
+rate1: n('-rate1'),
+margin: n('-margin'),
+years: parseInt(document.getElementById(prefix+'-years').value) || 10,
+};
+}
+
+function addBond() {
+const b = collectForm('f');
+if (!b) { showToast('⚠️ Uzupełnij wymagane pola'); return; }
+bonds.push(b); save();
+clearForm();
+showToast('✅ Dodano obligację ' + b.name);
+showPage('portfolio');
+}
+
+function addBondModal() {
+const b = collectForm('m');
+if (!b) { showToast('⚠️ Uzupełnij wymagane pola'); return; }
+bonds.push(b); save();
+closeAddModal();
+renderTable();
+showToast('✅ Dodano ' + b.name);
+}
+
+function clearForm() {
+['f-type','f-name','f-date','f-amount','f-rate1','f-margin','f-years'].forEach(id => {
+const el = document.getElementById(id);
+if (el.tagName === 'SELECT') el.selectedIndex = 0;
+else el.value = '';
+});
+}
+
+function deleteBond(id) {
+if (!confirm('Usunąć tę obligację?')) return;
+bonds = bonds.filter(b => b.id !== id);
+save(); renderTable(); showToast('🗑 Usunięto obligację');
+}
+
+function openEditModal(id) {
+const b = bonds.find(x => x.id === id);
+if (!b) return;
+document.getElementById('edit-id').value = id;
+document.getElementById('e-type').value = b.type;
+document.getElementById('e-name').value = b.name;
+document.getElementById('e-date').value = b.date;
+document.getElementById('e-amount').value = b.amount;
+document.getElementById('e-rate1').value = b.rate1;
+document.getElementById('e-margin').value = b.margin;
+document.getElementById('e-years').value = b.years;
+document.getElementById('edit-modal').classList.add('open');
+}
+
+function saveEdit() {
+const id = document.getElementById('edit-id').value;
+const idx = bonds.findIndex(b => b.id === id);
+if (idx < 0) return;
+bonds[idx] = {
+id,
+type: document.getElementById('e-type').value,
+name: document.getElementById('e-name').value,
+date: document.getElementById('e-date').value,
+amount: parseFloat(document.getElementById('e-amount').value),
+rate1: parseFloat(document.getElementById('e-rate1').value),
+margin: parseFloat(document.getElementById('e-margin').value),
+years: parseInt(document.getElementById('e-years').value),
+};
+save();
+closeEditModal();
+renderTable();
+showToast('✅ Zapisano zmiany');
+}
+
+function closeEditModal() { document.getElementById('edit-modal').classList.remove('open'); }
+function openAddModal() {
+// pre-fill today
+document.getElementById('m-date').value = new Date().toISOString().slice(0,10);
+document.getElementById('add-modal').classList.add('open');
+}
+function closeAddModal(e) {
+if (!e || e.target === document.getElementById('add-modal'))
+document.getElementById('add-modal').classList.remove('open');
+}
+function closeModal(e) {
+if (e.target === document.getElementById('edit-modal'))
+document.getElementById('edit-modal').classList.remove('open');
+}
+
+// ─────────────────────────────────────────────
+// INFLATION SLIDER
+// ─────────────────────────────────────────────
+const slider = document.getElementById('inf-slider');
+slider.value = inflation;
+document.getElementById('inf-display').textContent = inflation.toFixed(1) + '%';
+
+slider.addEventListener('input', () => {
+inflation = parseFloat(slider.value);
+document.getElementById('inf-display').textContent = inflation.toFixed(1) + '%';
+const pct = (inflation / 10) * 100;
+slider.style.setProperty('--pct', pct + '%');
+saveinf();
+refreshDashboard();
+});
+// init slider gradient
+slider.style.setProperty('--pct', (inflation / 10 * 100) + '%');
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+// Register Chart.js time adapter (built-in)
+// Chart.js 4 includes date adapter — use 'time' scale with luxon or built-in
+// For simplicity, we use category scale for bonds chart if time adapter not available
+document.addEventListener('DOMContentLoaded', () => {
+refreshDashboard();
+});
+refreshDashboard();
+
+// ─── PWA Service Worker (inline) ───
+if ('serviceWorker' in navigator) {
+const swCode = `
+self.addEventListener('install', e => {
+e.waitUntil(caches.open('obligacje-v1').then(c => c.addAll(['./', './index.html'])));
+});
+self.addEventListener('fetch', e => {
+e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+});`;
+const blob = new Blob([swCode], {type:'application/javascript'});
+const swUrl = URL.createObjectURL(blob);
+navigator.serviceWorker.register(swUrl).catch(()=>{});
+}
+</script>
+
+</body>
+</html>
