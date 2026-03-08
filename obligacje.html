@@ -10,7 +10,234 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0d1117">
 <title>Portfel Obligacji</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js">
+// ─────────────────────────────────────────────
+//  SYNC — EXPORT / IMPORT
+// ─────────────────────────────────────────────
+let _exportURL = '';
+
+function generateExport() {
+const data = {
+bonds: bonds,
+inflation: inflation,
+exported: new Date().toISOString(),
+v: 2
+};
+const json = JSON.stringify(data);
+const b64 = btoa(unescape(encodeURIComponent(json)));
+const url = window.location.href.split(’?’)[0] + ‘?import=’ + b64;
+_exportURL = url;
+
+// Clear previous QR
+const qrDiv = document.getElementById(‘export-qr’);
+qrDiv.innerHTML = ‘’;
+
+const wrap = document.getElementById(‘export-qr-wrap’);
+const warn = document.getElementById(‘export-size-warn’);
+wrap.style.display = ‘block’;
+
+if (b64.length > 2000) {
+warn.style.display = ‘block’;
+} else {
+warn.style.display = ‘none’;
+}
+
+try {
+new QRCode(qrDiv, {
+text: url,
+width: 220,
+height: 220,
+colorDark: ‘#000000’,
+colorLight: ‘#ffffff’,
+correctLevel: QRCode.CorrectLevel.M
+});
+} catch(e) {
+qrDiv.innerHTML = ‘<div style="color:var(--red);font-family:var(--mono);font-size:11px;padding:10px;">QR zbyt duży — użyj przycisku Kopiuj link</div>’;
+}
+}
+
+function copyExportLink() {
+if (!_exportURL) return;
+navigator.clipboard.writeText(_exportURL).then(() => {
+showToast(‘✓ Link skopiowany!’);
+}).catch(() => {
+// fallback
+const ta = document.createElement(‘textarea’);
+ta.value = _exportURL;
+document.body.appendChild(ta);
+ta.select();
+document.execCommand(‘copy’);
+document.body.removeChild(ta);
+showToast(‘✓ Link skopiowany!’);
+});
+}
+
+function importData() {
+const raw = document.getElementById(‘import-input’).value.trim();
+if (!raw) { showToast(‘⚠️ Wklej link eksportowy’); return; }
+
+try {
+let b64 = raw;
+// extract from URL if needed
+if (raw.includes(’?import=’)) {
+b64 = raw.split(’?import=’)[1];
+}
+const json = decodeURIComponent(escape(atob(b64)));
+const data = JSON.parse(json);
+
+```
+if (!data.bonds || !Array.isArray(data.bonds)) throw new Error('Nieprawidłowy format');
+
+bonds = data.bonds;
+inflation = parseFloat(data.inflation) || 3;
+save();
+saveinf();
+document.getElementById('import-input').value = '';
+showToast('✓ Dane zaimportowane! (' + bonds.length + ' obligacji)');
+setTimeout(() => showPage('dashboard'), 800);
+```
+
+} catch(e) {
+showToast(’❌ Błąd: ’ + e.message);
+}
+}
+
+// Auto-import from URL on load
+(function checkURLImport() {
+const params = new URLSearchParams(window.location.search);
+const imp = params.get(‘import’);
+if (!imp) return;
+try {
+const json = decodeURIComponent(escape(atob(imp)));
+const data = JSON.parse(json);
+if (!data.bonds) return;
+if (confirm(‘Znaleziono dane do importu (’ + data.bonds.length + ’ obligacji). Zaimportować? Zastąpi obecne dane.’)) {
+bonds = data.bonds;
+inflation = parseFloat(data.inflation) || 3;
+save();
+saveinf();
+showToast(‘✓ Dane zaimportowane!’);
+// Clean URL
+window.history.replaceState({}, ‘’, window.location.pathname);
+}
+} catch(e) {}
+})();
+
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js">
+// ─────────────────────────────────────────────
+//  SYNC — EXPORT / IMPORT
+// ─────────────────────────────────────────────
+let _exportURL = '';
+
+function generateExport() {
+const data = {
+bonds: bonds,
+inflation: inflation,
+exported: new Date().toISOString(),
+v: 2
+};
+const json = JSON.stringify(data);
+const b64 = btoa(unescape(encodeURIComponent(json)));
+const url = window.location.href.split(’?’)[0] + ‘?import=’ + b64;
+_exportURL = url;
+
+// Clear previous QR
+const qrDiv = document.getElementById(‘export-qr’);
+qrDiv.innerHTML = ‘’;
+
+const wrap = document.getElementById(‘export-qr-wrap’);
+const warn = document.getElementById(‘export-size-warn’);
+wrap.style.display = ‘block’;
+
+if (b64.length > 2000) {
+warn.style.display = ‘block’;
+} else {
+warn.style.display = ‘none’;
+}
+
+try {
+new QRCode(qrDiv, {
+text: url,
+width: 220,
+height: 220,
+colorDark: ‘#000000’,
+colorLight: ‘#ffffff’,
+correctLevel: QRCode.CorrectLevel.M
+});
+} catch(e) {
+qrDiv.innerHTML = ‘<div style="color:var(--red);font-family:var(--mono);font-size:11px;padding:10px;">QR zbyt duży — użyj przycisku Kopiuj link</div>’;
+}
+}
+
+function copyExportLink() {
+if (!_exportURL) return;
+navigator.clipboard.writeText(_exportURL).then(() => {
+showToast(‘✓ Link skopiowany!’);
+}).catch(() => {
+// fallback
+const ta = document.createElement(‘textarea’);
+ta.value = _exportURL;
+document.body.appendChild(ta);
+ta.select();
+document.execCommand(‘copy’);
+document.body.removeChild(ta);
+showToast(‘✓ Link skopiowany!’);
+});
+}
+
+function importData() {
+const raw = document.getElementById(‘import-input’).value.trim();
+if (!raw) { showToast(‘⚠️ Wklej link eksportowy’); return; }
+
+try {
+let b64 = raw;
+// extract from URL if needed
+if (raw.includes(’?import=’)) {
+b64 = raw.split(’?import=’)[1];
+}
+const json = decodeURIComponent(escape(atob(b64)));
+const data = JSON.parse(json);
+
+```
+if (!data.bonds || !Array.isArray(data.bonds)) throw new Error('Nieprawidłowy format');
+
+bonds = data.bonds;
+inflation = parseFloat(data.inflation) || 3;
+save();
+saveinf();
+document.getElementById('import-input').value = '';
+showToast('✓ Dane zaimportowane! (' + bonds.length + ' obligacji)');
+setTimeout(() => showPage('dashboard'), 800);
+```
+
+} catch(e) {
+showToast(’❌ Błąd: ’ + e.message);
+}
+}
+
+// Auto-import from URL on load
+(function checkURLImport() {
+const params = new URLSearchParams(window.location.search);
+const imp = params.get(‘import’);
+if (!imp) return;
+try {
+const json = decodeURIComponent(escape(atob(imp)));
+const data = JSON.parse(json);
+if (!data.bonds) return;
+if (confirm(‘Znaleziono dane do importu (’ + data.bonds.length + ’ obligacji). Zaimportować? Zastąpi obecne dane.’)) {
+bonds = data.bonds;
+inflation = parseFloat(data.inflation) || 3;
+save();
+saveinf();
+showToast(‘✓ Dane zaimportowane!’);
+// Clean URL
+window.history.replaceState({}, ‘’, window.location.pathname);
+}
+} catch(e) {}
+})();
+
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -585,6 +812,66 @@ code{background:var(–bg3);border:1px solid var(–border2);padding:1px 5px;bor
   </div>
 </div>
 
+<!-- ═══════════════════ PAGE: SYNC ═══════════════════ -->
+
+<div class="page" id="page-sync">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-title">SYNC</div>
+      <div class="topbar-sub">Synchronizacja danych</div>
+    </div>
+    <div class="topbar-time">
+      <span class="dot"></span>
+      <span id="sync-time">—</span>
+    </div>
+  </div>
+
+  <!-- EKSPORT -->
+
+  <div class="form-card" style="margin-bottom:10px;">
+    <div class="form-title">📤 Eksport — wyślij na inne urządzenie</div>
+    <p style="font-family:var(--mono);font-size:11px;color:var(--text2);line-height:1.7;margin-bottom:14px;">
+      Wygeneruj QR kod i zeskanuj go na iPadzie / innym telefonie.<br>
+      Możesz też skopiować link i otworzyć go na drugim urządzeniu.
+    </p>
+    <button class="btn-primary" onclick="generateExport()" style="margin-top:0;">Generuj QR kod ➜</button>
+    <div id="export-qr-wrap" style="display:none;margin-top:16px;text-align:center;">
+      <div id="export-qr" style="display:inline-block;padding:12px;background:#fff;border-radius:8px;"></div>
+      <div style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--text3);">Zeskanuj aparatem na drugim urządzeniu</div>
+      <button class="btn-secondary" onclick="copyExportLink()" style="margin-top:8px;">📋 Kopiuj link</button>
+    </div>
+    <div id="export-size-warn" style="display:none;margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--amber);line-height:1.6;">
+      ⚠️ Dużo danych — QR może być trudny do zeskanowania.<br>Użyj przycisku "Kopiuj link" zamiast QR.
+    </div>
+  </div>
+
+  <!-- IMPORT -->
+
+  <div class="form-card">
+    <div class="form-title">📥 Import — wczytaj z drugiego urządzenia</div>
+    <p style="font-family:var(--mono);font-size:11px;color:var(--text2);line-height:1.7;margin-bottom:14px;">
+      Wklej link skopiowany z drugiego urządzenia.<br>
+      <span style="color:var(--red);">Uwaga: zastąpi wszystkie obecne dane!</span>
+    </p>
+    <div class="form-group full" style="margin-bottom:10px;">
+      <label>Wklej link eksportowy</label>
+      <textarea id="import-input" placeholder="Wklej link tutaj..." style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:10px;font-family:var(--mono);font-size:12px;width:100%;min-height:80px;outline:none;resize:none;"></textarea>
+    </div>
+    <button class="btn-primary" onclick="importData()" style="margin-top:0;background:var(--green);color:#0d1117;">Importuj dane ➜</button>
+  </div>
+
+  <!-- INFO -->
+
+  <div class="info-box">
+    <h3>Jak to działa?</h3>
+    <ol>
+      <li>Na iPhone: otwórz Sync → kliknij "Generuj QR kod"</li>
+      <li>Na iPadzie: otwórz apkę → Sync → zeskanuj QR aparatem lub wklej skopiowany link</li>
+      <li>Dane zostaną załadowane natychmiast</li>
+    </ol>
+  </div>
+</div>
+
 <!-- ═══════════════════ BOTTOM NAV ═══════════════════ -->
 
 <nav class="nav">
@@ -599,6 +886,10 @@ code{background:var(–bg3);border:1px solid var(–border2);padding:1px 5px;bor
   <button class="nav-btn" id="nav-add" onclick="showPage('add')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
     Dodaj
+  </button>
+  <button class="nav-btn" id="nav-sync" onclick="showPage('sync')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 4v5h5"/><path d="M20 20v-5h-5"/><path d="M4 9a8 8 0 0115 2"/><path d="M20 15a8 8 0 01-15-2"/></svg>
+    Sync
   </button>
 </nav>
 
@@ -649,6 +940,7 @@ function showPage(id) {
   document.getElementById('nav-'+id).classList.add('active');
   if (id === 'dashboard') refreshDashboard();
   if (id === 'portfolio') renderTable();
+  if (id === 'sync') { document.getElementById('sync-time').textContent = new Date().toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'}); }
 }
 
 // ─────────────────────────────────────────────
@@ -1310,6 +1602,116 @@ self.addEventListener('fetch', e => {
   const swUrl = URL.createObjectURL(blob);
   navigator.serviceWorker.register(swUrl).catch(()=>{});
 }
+
+// ─────────────────────────────────────────────
+//  SYNC — EXPORT / IMPORT
+// ─────────────────────────────────────────────
+let _exportURL = '';
+
+function generateExport() {
+  const data = {
+    bonds: bonds,
+    inflation: inflation,
+    exported: new Date().toISOString(),
+    v: 2
+  };
+  const json = JSON.stringify(data);
+  const b64 = btoa(unescape(encodeURIComponent(json)));
+  const url = window.location.href.split('?')[0] + '?import=' + b64;
+  _exportURL = url;
+
+  // Clear previous QR
+  const qrDiv = document.getElementById('export-qr');
+  qrDiv.innerHTML = '';
+
+  const wrap = document.getElementById('export-qr-wrap');
+  const warn = document.getElementById('export-size-warn');
+  wrap.style.display = 'block';
+
+  if (b64.length > 2000) {
+    warn.style.display = 'block';
+  } else {
+    warn.style.display = 'none';
+  }
+
+  try {
+    new QRCode(qrDiv, {
+      text: url,
+      width: 220,
+      height: 220,
+      colorDark: '#000000',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } catch(e) {
+    qrDiv.innerHTML = '<div style="color:var(--red);font-family:var(--mono);font-size:11px;padding:10px;">QR zbyt duży — użyj przycisku Kopiuj link</div>';
+  }
+}
+
+function copyExportLink() {
+  if (!_exportURL) return;
+  navigator.clipboard.writeText(_exportURL).then(() => {
+    showToast('✓ Link skopiowany!');
+  }).catch(() => {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = _exportURL;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('✓ Link skopiowany!');
+  });
+}
+
+function importData() {
+  const raw = document.getElementById('import-input').value.trim();
+  if (!raw) { showToast('⚠️ Wklej link eksportowy'); return; }
+
+  try {
+    let b64 = raw;
+    // extract from URL if needed
+    if (raw.includes('?import=')) {
+      b64 = raw.split('?import=')[1];
+    }
+    const json = decodeURIComponent(escape(atob(b64)));
+    const data = JSON.parse(json);
+
+    if (!data.bonds || !Array.isArray(data.bonds)) throw new Error('Nieprawidłowy format');
+
+    bonds = data.bonds;
+    inflation = parseFloat(data.inflation) || 3;
+    save();
+    saveinf();
+    document.getElementById('import-input').value = '';
+    showToast('✓ Dane zaimportowane! (' + bonds.length + ' obligacji)');
+    setTimeout(() => showPage('dashboard'), 800);
+  } catch(e) {
+    showToast('❌ Błąd: ' + e.message);
+  }
+}
+
+// Auto-import from URL on load
+(function checkURLImport() {
+  const params = new URLSearchParams(window.location.search);
+  const imp = params.get('import');
+  if (!imp) return;
+  try {
+    const json = decodeURIComponent(escape(atob(imp)));
+    const data = JSON.parse(json);
+    if (!data.bonds) return;
+    if (confirm('Znaleziono dane do importu (' + data.bonds.length + ' obligacji). Zaimportować? Zastąpi obecne dane.')) {
+      bonds = data.bonds;
+      inflation = parseFloat(data.inflation) || 3;
+      save();
+      saveinf();
+      showToast('✓ Dane zaimportowane!');
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  } catch(e) {}
+})();
+
 </script>
 
 </body>
