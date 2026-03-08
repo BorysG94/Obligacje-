@@ -123,119 +123,155 @@ window.history.replaceState({}, ‘’, window.location.pathname);
 } catch(e) {}
 })();
 
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js">
 // ─────────────────────────────────────────────
-//  SYNC — EXPORT / IMPORT
+//  FORECAST + MILESTONES
 // ─────────────────────────────────────────────
-let _exportURL = '';
+function renderForecastAndMilestones(profit, totalDaily) {
+const GOAL = 100;
+const missing = Math.max(0, GOAL - profit);
+const now = new Date();
 
-function generateExport() {
-const data = {
-bonds: bonds,
-inflation: inflation,
-exported: new Date().toISOString(),
-v: 2
-};
-const json = JSON.stringify(data);
-const b64 = btoa(unescape(encodeURIComponent(json)));
-const url = window.location.href.split(’?’)[0] + ‘?import=’ + b64;
-_exportURL = url;
+// ── Forecast ──
+document.getElementById(‘fc-profit’).textContent = ‘+’ + profit.toFixed(2) + ’ PLN’;
+document.getElementById(‘fc-missing’).textContent = missing.toFixed(2) + ’ PLN’;
+document.getElementById(‘fc-rate’).textContent = ‘+’ + totalDaily.toFixed(4) + ’ PLN/dzień’;
 
-// Clear previous QR
-const qrDiv = document.getElementById(‘export-qr’);
-qrDiv.innerHTML = ‘’;
-
-const wrap = document.getElementById(‘export-qr-wrap’);
-const warn = document.getElementById(‘export-size-warn’);
-wrap.style.display = ‘block’;
-
-if (b64.length > 2000) {
-warn.style.display = ‘block’;
+if (profit >= GOAL) {
+document.getElementById(‘fc-date’).textContent = ‘🎉 Cel osiągnięty!’;
+document.getElementById(‘fc-days’).textContent = ‘Możesz już kupić nową obligację’;
+} else if (totalDaily > 0) {
+const daysLeft = Math.ceil(missing / totalDaily);
+const targetDate = new Date(now.getTime() + daysLeft * 86400000);
+const dateStr = targetDate.toLocaleDateString(‘pl-PL’, {day:‘numeric’, month:‘long’, year:‘numeric’});
+document.getElementById(‘fc-date’).textContent = dateStr;
+document.getElementById(‘fc-days’).textContent = ‘za ~’ + daysLeft + ’ dni’;
 } else {
-warn.style.display = ‘none’;
+document.getElementById(‘fc-date’).textContent = ‘—’;
+document.getElementById(‘fc-days’).textContent = ‘dodaj obligacje aby obliczyć’;
 }
 
-try {
-new QRCode(qrDiv, {
-text: url,
-width: 220,
-height: 220,
-colorDark: ‘#000000’,
-colorLight: ‘#ffffff’,
-correctLevel: QRCode.CorrectLevel.M
-});
-} catch(e) {
-qrDiv.innerHTML = ‘<div style="color:var(--red);font-family:var(--mono);font-size:11px;padding:10px;">QR zbyt duży — użyj przycisku Kopiuj link</div>’;
-}
-}
+// ── Milestones ──
+const MILESTONES = [0.10];
+for (let _v = 0.25; _v <= 5.001; _v += 0.25) MILESTONES.push(parseFloat(_v.toFixed(2)));
+const BOND_COST = 100;
 
-function copyExportLink() {
-if (!_exportURL) return;
-navigator.clipboard.writeText(_exportURL).then(() => {
-showToast(‘✓ Link skopiowany!’);
-}).catch(() => {
-// fallback
-const ta = document.createElement(‘textarea’);
-ta.value = _exportURL;
-document.body.appendChild(ta);
-ta.select();
-document.execCommand(‘copy’);
-document.body.removeChild(ta);
-showToast(‘✓ Link skopiowany!’);
-});
-}
+document.getElementById(‘ms-daily’).textContent = ‘+’ + totalDaily.toFixed(4) + ’ PLN’;
 
-function importData() {
-const raw = document.getElementById(‘import-input’).value.trim();
-if (!raw) { showToast(‘⚠️ Wklej link eksportowy’); return; }
+const list = document.getElementById(‘milestones-list’);
+const SHOW_INITIAL = 5;
 
-try {
-let b64 = raw;
-// extract from URL if needed
-if (raw.includes(’?import=’)) {
-b64 = raw.split(’?import=’)[1];
-}
-const json = decodeURIComponent(escape(atob(b64)));
-const data = JSON.parse(json);
+function buildMilestoneRows(showAll) {
+let foundNext = false;
+const rows = MILESTONES.map(target => {
+const done = totalDaily >= target;
+const isNext = !done && !foundNext;
+if (isNext) foundNext = true;
+const state = done ? ‘done’ : isNext ? ‘next’ : ‘locked’;
 
 ```
-if (!data.bonds || !Array.isArray(data.bonds)) throw new Error('Nieprawidłowy format');
+  let detail = '';
+  let bondsInfo = '';
 
-bonds = data.bonds;
-inflation = parseFloat(data.inflation) || 3;
-save();
-saveinf();
-document.getElementById('import-input').value = '';
-showToast('✓ Dane zaimportowane! (' + bonds.length + ' obligacji)');
-setTimeout(() => showPage('dashboard'), 800);
+  if (done) {
+    detail = 'Osiągni\u0119te! \u2713';
+    bondsInfo = '\u2713';
+  } else {
+    const currentInvested = bonds.reduce((a,b) => a + parseFloat(b.amount), 0);
+    const dailyPerBond = currentInvested > 0 && totalDaily > 0
+      ? totalDaily / (currentInvested / BOND_COST)
+      : (6.5 / 100 / 365) * BOND_COST;
+    const currentBonds_count = currentInvested / BOND_COST;
+    const neededBonds_count = target / dailyPerBond;
+    const bondsNeeded = Math.max(1, Math.ceil(neededBonds_count - currentBonds_count));
+    detail = bondsNeeded === 1
+      ? 'kup jeszcze 1 obligacj\u0119'
+      : 'kup jeszcze ' + bondsNeeded + ' obligacj' + (bondsNeeded < 5 ? 'e' : 'i');
+    bondsInfo = '+' + bondsNeeded;
+  }
+
+  const checkIcon = done ? '\u2713' : isNext ? '\u203a' : '';
+  return '<div class="milestone-row">'
+    + '<div class="milestone-check ' + state + '">' + checkIcon + '</div>'
+    + '<div class="milestone-info">'
+    + '<div class="milestone-target ' + state + '">' + target.toFixed(2) + ' PLN/dzie\u0144</div>'
+    + '<div class="milestone-detail">' + detail + '</div>'
+    + '</div>'
+    + '<div class="milestone-bonds ' + state + '">' + bondsInfo + '</div>'
+    + '</div>';
+});
+
+const visible = showAll ? rows : rows.slice(0, SHOW_INITIAL);
+let html = visible.join('');
+
+if (!showAll && rows.length > SHOW_INITIAL) {
+  const hidden = rows.length - SHOW_INITIAL;
+  html += '<button onclick="expandMilestones()" style="'
+    + 'width:100%;margin-top:8px;padding:10px;background:none;'
+    + 'border:1px solid rgba(48,64,96,1);border-radius:8px;'
+    + 'color:rgba(0,212,255,1);font-family:var(--mono);font-size:11px;'
+    + 'cursor:pointer;letter-spacing:.06em;">'
+    + '+ poka\u017c ' + hidden + ' wi\u0119cej</button>';
+} else if (showAll && rows.length > SHOW_INITIAL) {
+  html += '<button onclick="collapseMilestones()" style="'
+    + 'width:100%;margin-top:8px;padding:10px;background:none;'
+    + 'border:1px solid rgba(48,64,96,1);border-radius:8px;'
+    + 'color:rgba(125,125,125,1);font-family:var(--mono);font-size:11px;'
+    + 'cursor:pointer;letter-spacing:.06em;">'
+    + '\u25b2 Zwi\u0144</button>';
+}
+return html;
 ```
 
-} catch(e) {
-showToast(’❌ Błąd: ’ + e.message);
-}
 }
 
-// Auto-import from URL on load
-(function checkURLImport() {
-const params = new URLSearchParams(window.location.search);
-const imp = params.get(‘import’);
-if (!imp) return;
-try {
-const json = decodeURIComponent(escape(atob(imp)));
-const data = JSON.parse(json);
-if (!data.bonds) return;
-if (confirm(‘Znaleziono dane do importu (’ + data.bonds.length + ’ obligacji). Zaimportować? Zastąpi obecne dane.’)) {
-bonds = data.bonds;
-inflation = parseFloat(data.inflation) || 3;
-save();
-saveinf();
-showToast(‘✓ Dane zaimportowane!’);
-// Clean URL
-window.history.replaceState({}, ‘’, window.location.pathname);
+list.innerHTML = buildMilestoneRows(false);
+
+window._lastProfit = profit;
+window._lastTotalDaily = totalDaily;
 }
-} catch(e) {}
-})();
+
+function expandMilestones() {
+const MILESTONES = [0.10];
+for (let _v = 0.25; _v <= 5.001; _v += 0.25) MILESTONES.push(parseFloat(_v.toFixed(2)));
+const BOND_COST = 100;
+const totalDaily = window._lastTotalDaily || 0;
+const list = document.getElementById(‘milestones-list’);
+
+let foundNext = false;
+const rows = MILESTONES.map(target => {
+const done = totalDaily >= target;
+const isNext = !done && !foundNext;
+if (isNext) foundNext = true;
+const state = done ? ‘done’ : isNext ? ‘next’ : ‘locked’;
+let detail = ‘’, bondsInfo = ‘’;
+if (done) {
+detail = ‘Osiągni\u0119te! \u2713’; bondsInfo = ‘\u2713’;
+} else {
+const currentInvested = bonds.reduce((a,b) => a + parseFloat(b.amount), 0);
+const dailyPerBond = currentInvested > 0 && totalDaily > 0
+? totalDaily / (currentInvested / BOND_COST) : (6.5/100/365)*BOND_COST;
+const bondsNeeded = Math.max(1, Math.ceil((target/dailyPerBond) - (currentInvested/BOND_COST)));
+detail = bondsNeeded === 1 ? ‘kup jeszcze 1 obligacj\u0119’
+: ‘kup jeszcze ’ + bondsNeeded + ’ obligacj’ + (bondsNeeded < 5 ? ‘e’ : ‘i’);
+bondsInfo = ‘+’ + bondsNeeded;
+}
+const checkIcon = done ? ‘\u2713’ : isNext ? ‘\u203a’ : ‘’;
+return ‘<div class="milestone-row">’
++ ‘<div class="milestone-check ' + state + '">’ + checkIcon + ‘</div>’
++ ‘<div class="milestone-info">’
++ ‘<div class="milestone-target ' + state + '">’ + target.toFixed(2) + ’ PLN/dzie\u0144</div>’
++ ‘<div class="milestone-detail">’ + detail + ‘</div>’
++ ‘</div>’
++ ‘<div class="milestone-bonds ' + state + '">’ + bondsInfo + ‘</div>’
++ ‘</div>’;
+});
+list.innerHTML = rows.join(’’)
++ ‘<button onclick="collapseMilestones()" style="width:100%;margin-top:8px;padding:10px;background:none;border:1px solid rgba(48,64,96,1);border-radius:8px;color:rgba(125,125,125,1);font-family:var(--mono);font-size:11px;cursor:pointer;letter-spacing:.06em;">\u25b2 Zwi\u0144</button>’;
+}
+
+function collapseMilestones() {
+renderForecastAndMilestones(window._lastProfit || 0, window._lastTotalDaily || 0);
+}
 
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -295,8 +331,8 @@ display:flex;align-items:center;justify-content:space-between;
 margin-bottom:14px;
 }
 .topbar-title{
-font-family:var(–mono);font-size:15px;font-weight:700;
-color:var(–text);letter-spacing:.12em;text-transform:uppercase;
+font-family:var(–mono);font-size:20px;font-weight:700;
+color:var(–text);letter-spacing:.06em;text-transform:uppercase;
 }
 .topbar-sub{font-size:11px;color:var(–text3);letter-spacing:.1em;text-transform:uppercase;margin-top:3px;}
 .topbar-time{font-family:var(–mono);font-size:11px;color:var(–text3);display:flex;align-items:center;gap:5px;}
@@ -507,6 +543,84 @@ code{background:var(–bg3);border:1px solid var(–border2);padding:1px 5px;bor
 .toast{position:fixed;bottom:calc(78px + var(–safe-bot));left:50%;transform:translateX(-50%) translateY(14px);background:var(–bg3);border:1px solid var(–border2);color:var(–text);font-family:var(–mono);font-size:11px;padding:8px 16px;border-radius:20px;z-index:300;opacity:0;pointer-events:none;transition:all .2s;white-space:nowrap;letter-spacing:.04em;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 @media(min-width:640px){body{max-width:640px;margin:0 auto;}.page{padding:18px;}}
+
+/* ── PROGNOZA ZAKUPU ── */
+.forecast-card{
+background:var(–bg2);border:1px solid var(–border2);
+border-radius:var(–r);padding:16px;margin-bottom:8px;
+animation:fadeUp .4s ease .5s both;
+}
+.forecast-title{
+font-family:var(–mono);font-size:9px;font-weight:700;
+color:var(–cyan);text-transform:uppercase;letter-spacing:.12em;
+margin-bottom:12px;
+}
+.forecast-row{
+display:flex;justify-content:space-between;align-items:center;
+padding:7px 0;border-bottom:1px solid var(–border);
+}
+.forecast-row:last-child{border-bottom:none;}
+.forecast-lbl{font-family:var(–mono);font-size:10px;color:var(–text3);}
+.forecast-val{font-family:var(–mono);font-size:13px;font-weight:700;color:var(–text);}
+.forecast-val.accent{color:var(–cyan);}
+.forecast-val.green{color:var(–green);}
+.forecast-val.amber{color:var(–amber);}
+.forecast-highlight{
+background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.15);
+border-radius:8px;padding:12px;margin-top:10px;text-align:center;
+}
+.forecast-highlight-label{font-family:var(–mono);font-size:9px;color:var(–text3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;}
+.forecast-highlight-val{font-family:var(–mono);font-size:20px;font-weight:800;color:var(–cyan);text-shadow:0 0 12px rgba(0,212,255,.4);}
+.forecast-highlight-sub{font-family:var(–mono);font-size:10px;color:var(–text3);margin-top:3px;}
+
+/* ── MILESTONES ── */
+.milestones-card{
+background:var(–bg2);border:1px solid var(–border2);
+border-radius:var(–r);padding:16px;margin-bottom:8px;
+animation:fadeUp .4s ease .55s both;
+}
+.milestones-title{
+font-family:var(–mono);font-size:9px;font-weight:700;
+color:var(–amber);text-transform:uppercase;letter-spacing:.12em;
+margin-bottom:4px;
+}
+.milestones-current{
+font-family:var(–mono);font-size:11px;color:var(–text3);
+margin-bottom:12px;
+}
+.milestones-current span{color:var(–green);font-weight:700;}
+.milestone-row{
+display:flex;align-items:center;gap:12px;
+padding:10px 0;border-bottom:1px solid var(–border);
+}
+.milestone-row:last-child{border-bottom:none;}
+.milestone-check{
+width:22px;height:22px;border-radius:5px;flex-shrink:0;
+display:flex;align-items:center;justify-content:center;
+font-size:13px;border:1px solid var(–border2);
+background:var(–bg3);transition:all .3s;
+}
+.milestone-check.done{
+background:rgba(45,224,138,.15);border-color:var(–green);
+color:var(–green);box-shadow:0 0 8px rgba(45,224,138,.2);
+}
+.milestone-check.next{
+border-color:var(–amber);
+animation:pulse-amber 1.8s ease infinite;
+}
+@keyframes pulse-amber{0%,100%{box-shadow:0 0 0 0 rgba(245,166,35,.4);}50%{box-shadow:0 0 0 5px rgba(245,166,35,0);}}
+.milestone-info{flex:1;}
+.milestone-target{font-family:var(–mono);font-size:14px;font-weight:700;}
+.milestone-target.done{color:var(–green);}
+.milestone-target.next{color:var(–amber);}
+.milestone-target.locked{color:var(–text3);}
+.milestone-detail{font-family:var(–mono);font-size:10px;color:var(–text3);margin-top:2px;}
+.milestone-bonds{
+font-family:var(–mono);font-size:10px;text-align:right;flex-shrink:0;
+}
+.milestone-bonds.done{color:var(–green);}
+.milestone-bonds.next{color:var(–amber);}
+.milestone-bonds.locked{color:var(–text3);}
 </style>
 
 </head>
@@ -562,14 +676,19 @@ code{background:var(–bg3);border:1px solid var(–border2);padding:1px 5px;bor
       <div class="stat-lbl">Wartość przy wykupie</div>
       <div class="stat-val" id="s-maturity">0,00 PLN</div>
     </div>
-    <div class="stat-card accent-gold">
-      <div class="stat-lbl">Śr. oprocentowanie</div>
-      <div class="stat-val" id="s-avg-rate">0.00%</div>
+    <div class="stat-card accent-green">
+      <div class="stat-lbl">Zysk przy wykupie</div>
+      <div class="stat-val" id="s-maturity-profit">0,00 PLN</div>
+      <div class="stat-sub" id="s-maturity-profit-pct">0.00%</div>
     </div>
     <div class="stat-card accent-blue">
       <div class="stat-lbl">Liczba obligacji</div>
       <div class="stat-val big" id="s-count">0</div>
       <div class="stat-sub" id="s-count-sub">w portfelu</div>
+    </div>
+    <div class="stat-card accent-gold">
+      <div class="stat-lbl">Śr. oprocentowanie</div>
+      <div class="stat-val big" id="s-avg-rate">0.00%</div>
     </div>
   </div>
 
@@ -611,6 +730,37 @@ code{background:var(–bg3);border:1px solid var(–border2);padding:1px 5px;bor
       </div>
     </div>
     <div class="daily-list" id="daily-list"></div>
+  </div>
+
+  <!-- PROGNOZA ZAKUPU -->
+
+  <div class="forecast-card" id="forecast-card">
+    <div class="forecast-title">📅 Prognoza — kolejna obligacja z zysku</div>
+    <div class="forecast-row">
+      <span class="forecast-lbl">Aktualny zysk</span>
+      <span class="forecast-val green" id="fc-profit">0,00 PLN</span>
+    </div>
+    <div class="forecast-row">
+      <span class="forecast-lbl">Brakuje do 100 PLN</span>
+      <span class="forecast-val accent" id="fc-missing">100,00 PLN</span>
+    </div>
+    <div class="forecast-row">
+      <span class="forecast-lbl">Tempo zarobku</span>
+      <span class="forecast-val" id="fc-rate">— PLN/dzień</span>
+    </div>
+    <div class="forecast-highlight">
+      <div class="forecast-highlight-label">Szacowana data zakupu</div>
+      <div class="forecast-highlight-val" id="fc-date">—</div>
+      <div class="forecast-highlight-sub" id="fc-days">obliczam...</div>
+    </div>
+  </div>
+
+  <!-- MILESTONES DZIENNEGO ZAROBKU -->
+
+  <div class="milestones-card">
+    <div class="milestones-title">⚡ Milestones dziennego zarobku</div>
+    <div class="milestones-current">Dziś zarabiasz <span id="ms-daily">0,0000 PLN</span> dziennie</div>
+    <div id="milestones-list"></div>
   </div>
 
   <!-- CHART: TOTAL PORTFOLIO -->
@@ -1149,8 +1299,11 @@ function refreshDashboard() {
     document.getElementById('s-profit').textContent = '0,00 PLN';
     document.getElementById('s-profit-pct').textContent = '0.00%';
     document.getElementById('s-maturity').textContent = '0,00 PLN';
+    document.getElementById('s-maturity-profit').textContent = '0,00 PLN';
+    document.getElementById('s-maturity-profit-pct').textContent = '0.00%';
     document.getElementById('s-avg-rate').textContent = '0.00%';
     renderDailyCard(false);
+    renderForecastAndMilestones(0, 0);
     return;
   }
 
@@ -1175,6 +1328,10 @@ function refreshDashboard() {
   document.getElementById('s-profit').className = 'stat-val ' + (profit>=0?'pos':'neg');
   document.getElementById('s-profit-pct').textContent = fmtPct(profitPct);
   document.getElementById('s-maturity').textContent = fmtPLN(maturity);
+  const maturityProfit = maturity - invested;
+  const maturityProfitPct = invested > 0 ? (maturityProfit / invested * 100) : 0;
+  document.getElementById('s-maturity-profit').textContent = (maturityProfit >= 0 ? '+' : '') + fmtPLN(maturityProfit);
+  document.getElementById('s-maturity-profit-pct').textContent = (maturityProfitPct >= 0 ? '+' : '') + maturityProfitPct.toFixed(2) + '%';
   document.getElementById('s-avg-rate').textContent = avgRate.toFixed(2) + '%';
   document.getElementById('s-count').textContent = bonds.length;
   document.getElementById('s-count-sub').textContent = bonds.length === 1 ? 'obligacja' : bonds.length < 5 ? 'obligacje' : 'obligacji';
@@ -1184,6 +1341,9 @@ function refreshDashboard() {
   drawPieChart();
   renderGoalCard(profit);
   renderDailyCard(false);
+  // calc total daily income for forecast + milestones
+  const totalDailyIncome = bonds.reduce((a,b) => a + calcDailyIncome(b, inflation), 0);
+  renderForecastAndMilestones(profit, totalDailyIncome);
 }
 
 function buildPortfolioTimeline() {
@@ -1711,6 +1871,154 @@ function importData() {
     }
   } catch(e) {}
 })();
+
+
+// ─────────────────────────────────────────────
+//  FORECAST + MILESTONES
+// ─────────────────────────────────────────────
+function renderForecastAndMilestones(profit, totalDaily) {
+  const GOAL = 100;
+  const missing = Math.max(0, GOAL - profit);
+  const now = new Date();
+
+  // ── Forecast ──
+  document.getElementById('fc-profit').textContent = '+' + profit.toFixed(2) + ' PLN';
+  document.getElementById('fc-missing').textContent = missing.toFixed(2) + ' PLN';
+  document.getElementById('fc-rate').textContent = '+' + totalDaily.toFixed(4) + ' PLN/dzień';
+
+  if (profit >= GOAL) {
+    document.getElementById('fc-date').textContent = '🎉 Cel osiągnięty!';
+    document.getElementById('fc-days').textContent = 'Możesz już kupić nową obligację';
+  } else if (totalDaily > 0) {
+    const daysLeft = Math.ceil(missing / totalDaily);
+    const targetDate = new Date(now.getTime() + daysLeft * 86400000);
+    const dateStr = targetDate.toLocaleDateString('pl-PL', {day:'numeric', month:'long', year:'numeric'});
+    document.getElementById('fc-date').textContent = dateStr;
+    document.getElementById('fc-days').textContent = 'za ~' + daysLeft + ' dni';
+  } else {
+    document.getElementById('fc-date').textContent = '—';
+    document.getElementById('fc-days').textContent = 'dodaj obligacje aby obliczyć';
+  }
+
+  // ── Milestones ──
+  const MILESTONES = [0.10];
+  for (let _v = 0.25; _v <= 5.001; _v += 0.25) MILESTONES.push(parseFloat(_v.toFixed(2)));
+  const BOND_COST = 100;
+
+  document.getElementById('ms-daily').textContent = '+' + totalDaily.toFixed(4) + ' PLN';
+
+  const list = document.getElementById('milestones-list');
+  const SHOW_INITIAL = 5;
+
+  function buildMilestoneRows(showAll) {
+    let foundNext = false;
+    const rows = MILESTONES.map(target => {
+      const done = totalDaily >= target;
+      const isNext = !done && !foundNext;
+      if (isNext) foundNext = true;
+      const state = done ? 'done' : isNext ? 'next' : 'locked';
+
+      let detail = '';
+      let bondsInfo = '';
+
+      if (done) {
+        detail = 'Osiągni\u0119te! \u2713';
+        bondsInfo = '\u2713';
+      } else {
+        const currentInvested = bonds.reduce((a,b) => a + parseFloat(b.amount), 0);
+        const dailyPerBond = currentInvested > 0 && totalDaily > 0
+          ? totalDaily / (currentInvested / BOND_COST)
+          : (6.5 / 100 / 365) * BOND_COST;
+        const currentBonds_count = currentInvested / BOND_COST;
+        const neededBonds_count = target / dailyPerBond;
+        const bondsNeeded = Math.max(1, Math.ceil(neededBonds_count - currentBonds_count));
+        detail = bondsNeeded === 1
+          ? 'kup jeszcze 1 obligacj\u0119'
+          : 'kup jeszcze ' + bondsNeeded + ' obligacj' + (bondsNeeded < 5 ? 'e' : 'i');
+        bondsInfo = '+' + bondsNeeded;
+      }
+
+      const checkIcon = done ? '\u2713' : isNext ? '\u203a' : '';
+      return '<div class="milestone-row">'
+        + '<div class="milestone-check ' + state + '">' + checkIcon + '</div>'
+        + '<div class="milestone-info">'
+        + '<div class="milestone-target ' + state + '">' + target.toFixed(2) + ' PLN/dzie\u0144</div>'
+        + '<div class="milestone-detail">' + detail + '</div>'
+        + '</div>'
+        + '<div class="milestone-bonds ' + state + '">' + bondsInfo + '</div>'
+        + '</div>';
+    });
+
+    const visible = showAll ? rows : rows.slice(0, SHOW_INITIAL);
+    let html = visible.join('');
+
+    if (!showAll && rows.length > SHOW_INITIAL) {
+      const hidden = rows.length - SHOW_INITIAL;
+      html += '<button onclick="expandMilestones()" style="'
+        + 'width:100%;margin-top:8px;padding:10px;background:none;'
+        + 'border:1px solid rgba(48,64,96,1);border-radius:8px;'
+        + 'color:rgba(0,212,255,1);font-family:var(--mono);font-size:11px;'
+        + 'cursor:pointer;letter-spacing:.06em;">'
+        + '+ poka\u017c ' + hidden + ' wi\u0119cej</button>';
+    } else if (showAll && rows.length > SHOW_INITIAL) {
+      html += '<button onclick="collapseMilestones()" style="'
+        + 'width:100%;margin-top:8px;padding:10px;background:none;'
+        + 'border:1px solid rgba(48,64,96,1);border-radius:8px;'
+        + 'color:rgba(125,125,125,1);font-family:var(--mono);font-size:11px;'
+        + 'cursor:pointer;letter-spacing:.06em;">'
+        + '\u25b2 Zwi\u0144</button>';
+    }
+    return html;
+  }
+
+  list.innerHTML = buildMilestoneRows(false);
+
+  window._lastProfit = profit;
+  window._lastTotalDaily = totalDaily;
+}
+
+function expandMilestones() {
+  const MILESTONES = [0.10];
+  for (let _v = 0.25; _v <= 5.001; _v += 0.25) MILESTONES.push(parseFloat(_v.toFixed(2)));
+  const BOND_COST = 100;
+  const totalDaily = window._lastTotalDaily || 0;
+  const list = document.getElementById('milestones-list');
+
+  let foundNext = false;
+  const rows = MILESTONES.map(target => {
+    const done = totalDaily >= target;
+    const isNext = !done && !foundNext;
+    if (isNext) foundNext = true;
+    const state = done ? 'done' : isNext ? 'next' : 'locked';
+    let detail = '', bondsInfo = '';
+    if (done) {
+      detail = 'Osiągni\u0119te! \u2713'; bondsInfo = '\u2713';
+    } else {
+      const currentInvested = bonds.reduce((a,b) => a + parseFloat(b.amount), 0);
+      const dailyPerBond = currentInvested > 0 && totalDaily > 0
+        ? totalDaily / (currentInvested / BOND_COST) : (6.5/100/365)*BOND_COST;
+      const bondsNeeded = Math.max(1, Math.ceil((target/dailyPerBond) - (currentInvested/BOND_COST)));
+      detail = bondsNeeded === 1 ? 'kup jeszcze 1 obligacj\u0119'
+        : 'kup jeszcze ' + bondsNeeded + ' obligacj' + (bondsNeeded < 5 ? 'e' : 'i');
+      bondsInfo = '+' + bondsNeeded;
+    }
+    const checkIcon = done ? '\u2713' : isNext ? '\u203a' : '';
+    return '<div class="milestone-row">'
+      + '<div class="milestone-check ' + state + '">' + checkIcon + '</div>'
+      + '<div class="milestone-info">'
+      + '<div class="milestone-target ' + state + '">' + target.toFixed(2) + ' PLN/dzie\u0144</div>'
+      + '<div class="milestone-detail">' + detail + '</div>'
+      + '</div>'
+      + '<div class="milestone-bonds ' + state + '">' + bondsInfo + '</div>'
+      + '</div>';
+  });
+  list.innerHTML = rows.join('')
+    + '<button onclick="collapseMilestones()" style="width:100%;margin-top:8px;padding:10px;background:none;border:1px solid rgba(48,64,96,1);border-radius:8px;color:rgba(125,125,125,1);font-family:var(--mono);font-size:11px;cursor:pointer;letter-spacing:.06em;">\u25b2 Zwi\u0144</button>';
+}
+
+function collapseMilestones() {
+  renderForecastAndMilestones(window._lastProfit || 0, window._lastTotalDaily || 0);
+}
 
 </script>
 
